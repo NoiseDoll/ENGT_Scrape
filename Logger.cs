@@ -12,14 +12,14 @@ namespace ENGT_Scrape
     /// </summary>
     class Logger
     {
-        private String logOutput;
+        private string logOutput;
 
         public enum LogType
         {
             INFO, WARNING, ERROR
         }
 
-        public String LogOutput
+        public string LogOutput
         {
             get { return logOutput; }
             set { logOutput = value; }
@@ -28,11 +28,11 @@ namespace ENGT_Scrape
         {
             LoggerConstructor("engt.log");
         }
-        public Logger(String file)
+        public Logger(string file)
         {
             LoggerConstructor(file);
         }
-        private void LoggerConstructor(String file)
+        private void LoggerConstructor(string file)
         {
             this.logOutput = file;
             StreamWriter writer = null;
@@ -55,7 +55,7 @@ namespace ENGT_Scrape
             }
         }
 
-        public void Write(String message, LogType type)
+        public void Write(string message, LogType type)
         {
             StreamWriter writer = null;
             try 

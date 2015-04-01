@@ -15,7 +15,7 @@ using System.Text.RegularExpressions;
 namespace ENGT_Scrape
 {
     /// <summary>
-    /// Class to performe various scrape tasks.</summary>
+    /// Class to perform various scrape tasks.</summary>
     public static class ScrapeActions
     {
         /// <summary>
@@ -45,9 +45,8 @@ namespace ENGT_Scrape
                 {
                     return ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete");
                 });
-            System.Console.WriteLine("Page title is: " + Program.driver.Title);
 
-            //Collecting a list of elements referering to cars in table
+            //Collecting a list of elements referring to cars in table
             Dictionary<string, string> cars = new Dictionary<string, string>();
             cars = Program.driver.FindElements(By.CssSelector("a[id^='ctl00_MainContent_GVVehicle_ct']")).ToDictionary(e => e.GetAttribute("id"), k => k.Text.ToLower());
             if (cars.Count > 0)
@@ -66,7 +65,7 @@ namespace ENGT_Scrape
             {
                 //process only selected cars in parseSet
                 if (parseSet.Count > 0 && !parseSet.Contains( car.Value ) ) continue;
-                //recover from internet connetion problems
+                //recover from Internet connection problems
                 if (Program.bRecover)
                 {
                     if (recData.stage >= 1 && car.Value != recData.data[1])
@@ -87,27 +86,46 @@ namespace ENGT_Scrape
                 IWebElement car_el = Program.driver.FindElement(By.Id(car.Key));
                 car_el.Click();
                 Program.wait.Until((d) =>
+                {
+                    //Try taking car's title from engines tab to ensure page has been reloaded
+                    try
                     {
-                        return ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete");
-                    });
-                //Collecting a list of elements refering to engine of current car
-                engines = Program.driver.FindElements(By.CssSelector("a[id^='ctl00_MainContent_GVVehicleConfig_ct']"))
-                    .ToDictionary(e => e.GetAttribute("id"), k => 
+                        car_title = d.FindElement(By.Id("ctl00_MainContent_lblVehicleConfigTitle")).Text.ToLower();
+                        return car.Value == car_title;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex is NoSuchElementException || ex is StaleElementReferenceException)
                         {
-                            String href = k.GetAttribute("href");
-                            Match match = Regex.Match(href, @".*\?engPartno=(?<engPartno>\w+)");
-                            if(match.Success)
-                            {
-                                return match.Groups["engPartno"].Value;
-                            }
-                            Program.logger.Write(
-                                String.Format("Regex failed to get engine part number from href: {0}.{1}Using engine string instead.", href, Environment.NewLine),
-                                Logger.LogType.ERROR);
-                            return k.Text;
+                            return false;
                         }
+                        else throw;
+                    }
+                });
+                IReadOnlyCollection<IWebElement> engine_els = Program.driver.FindElements(By.CssSelector("a[id^='ctl00_MainContent_GVVehicleConfig_ct']"));
+                //Collecting a list of elements referring to engine of current car
+                engines = engine_els.ToDictionary(e => e.GetAttribute("id"), k => k.Text
+                        //{
+                        //    String href = k.GetAttribute("href");
+                        //    Match match = Regex.Match(href, @".*\?engPartno=(?<engPartno>\w+)");
+                        //    if(match.Success)
+                        //    {
+                        //        return match.Groups["engPartno"].Value;
+                        //    }
+                        //    Program.logger.Write(
+                        //        String.Format("Regex failed to get engine part number from href: {0}.{1}Using engine string instead.", href, Environment.NewLine),
+                        //        Logger.LogType.ERROR);
+                        //    return k.Text;
+                        //}
                     );
-
-                Program.logger.Write(String.Format("Found {0} engines", engines.Count), Logger.LogType.INFO);
+                if (engines.Count > 0)
+                {
+                    Program.logger.Write(String.Format("Found {0} engines", engines.Count), Logger.LogType.INFO);
+                }
+                else
+                {
+                    Program.logger.Write("No engines has been found.", Logger.LogType.ERROR);
+                }
 
                 //Clicking through entire list of engines of current car to get additional info
                 string eng_title = null;
@@ -115,7 +133,7 @@ namespace ENGT_Scrape
                 List<string> output = new List<string>();
                 foreach (KeyValuePair<string, string> engine in engines)
                 {
-                    //recover from internet connection problems
+                    //recover from Internet connection problems
                     if (Program.bRecover)
                     {
                         if (recData.stage >= 2 && engine.Value != recData.data[2])
@@ -137,14 +155,14 @@ namespace ENGT_Scrape
                         recData.stage = 2;
                         recData.data[2] = engine.Value;
                     }
+                    Program.logger.Write(String.Format("Collecting parts for engine: {0}", engine.Value), Logger.LogType.INFO);
                     IWebElement eng_el = Program.driver.FindElement(By.Id(engine.Key));
+                    //Clicking on engine
                     eng_el.Click();
                     Program.wait.Until((d) =>
                         {
                             return ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete");
                         });
-
-                    Program.logger.Write(String.Format("Scraping engine {0}", engine.Value), Logger.LogType.INFO);
 
                     //Collecting engine parts
                     //parse through table
@@ -152,13 +170,21 @@ namespace ENGT_Scrape
                     string prev_name = null;
                     int count = 0;
                     IList<IWebElement> trs = Program.driver.FindElements(By.CssSelector("div[id='ctl00_MainContent_pnlPartdetails'] table tbody tr"));
+                    if (trs.Count > 0)
+                    {
+                        Program.logger.Write(String.Format("Found {0} entries with part in table.", trs.Count), Logger.LogType.INFO);
+                    }
+                    else
+                    {
+                        Program.logger.Write("No entries in table.", Logger.LogType.ERROR);
+                    }
                     foreach (IWebElement tr in trs)
                     {
                         IWebElement w = null;
                         ScrapeData.EnginePart part;
                         string number, desc, note, href, price;
                         number = desc = note = price = "";
-                        //Scrape part number and url
+                        //Scrape part number and URL
                         try
                         {
                             w = tr.FindElement(By.CssSelector("a[id$='_lnkPartno']"));
@@ -239,32 +265,38 @@ namespace ENGT_Scrape
                     back.Click();
                     Program.wait.Until((d) =>
                     {
-                        //Try taking car's title from engines tab to ensure page has been reloaded
-                        try
-                        {
-                            car_title = d.FindElement(By.Id("ctl00_MainContent_lblVehicleConfigTitle")).Text.ToLower();
-                            return car.Value == car_title;
-                        }
-                        catch (Exception ex)
-                        {
-                            if (ex is NoSuchElementException || ex is StaleElementReferenceException)
-                            {
-                                return false;
-                            }
-                            else throw;
-                        }
+                        return ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete");
                     });
                 }
                 //Append price into file
                 if (bPrice)
                 {
-                    using (StreamWriter writer = File.AppendText("price.tsv"))
-                    {                        
-                        foreach (string s in output)
+                    string fileName = "price.tsv";
+                    if(output.Count > 0)
+                    {
+                        Program.logger.Write(String.Format("Adding {0} lines to file {1}", output.Count, fileName), Logger.LogType.INFO);
+                        StreamWriter writer = null;
+                        try
                         {
-                            writer.WriteLine(s);
+                            writer = File.AppendText(fileName);
+                            foreach (string s in output)
+                            {
+                                writer.WriteLine(s);
+                            }
+                        }
+                        catch (Exception e)
+                        {
+                            Program.logger.Write(String.Format("Failed to append new lines into this file with error: {0}", e.Message), Logger.LogType.ERROR);
+                        }
+                        finally
+                        {
+                            if (writer != null)
+                            {
+                                writer.Dispose();
+                            }
                         }
                     }
+                    
                 }
             }
             //output all distinct and sorted notes
@@ -316,40 +348,25 @@ namespace ENGT_Scrape
                 bool bError = false;
                 Program.wait.Until((d) =>
                 {
-                    try
-                    {
-                        string partNumber = d.FindElement(By.Id("ctl00_MainContent_lblPartDetailsText")).Text;
-                        return part.Key == partNumber;
-                    }
-                    catch (Exception ex)
-                    {
-                        try
-                        {
-                            string er = d.FindElement(By.TagName("h1")).Text;
-                            if (er == "Server Error in '/' Application.") bError = true;
-                            return true;
-                        }
-                        catch (Exception ex2)
-                        {
-                            if (ex2 is NoSuchElementException || ex2 is StaleElementReferenceException)
-                            {
-                                return false;
-                            }
-                            else throw;
-                        }
-                        if (ex is NoSuchElementException || ex is StaleElementReferenceException)
-                        {
-                            return false;
-                        }
-                        else throw;
-                    }
+                    return ((IJavaScriptExecutor)d).ExecuteScript("return document.readyState").Equals("complete");
                 });
+                //Check if there is server error page
+                try
+                {
+                    string er = Program.driver.FindElement(By.TagName("h1")).Text;
+                    if (er == "Server Error in '/' Application.")
+                    {
+                        bError = true;
+                    }
+                }
+                catch (NoSuchElementException){} //there is no server error
+               
                 if (bError) continue; //Server error - skip this engine part
                 //log
-                Console.WriteLine("Current engine part: {0}", part.Key);
+                Program.logger.Write(String.Format("Scraping engine part: {0}", part.Key), Logger.LogType.INFO);
                 //Get part description
                 //part.Value.description = Program.driver.FindElement(By.Id("ctl00_MainContent_lblDescriptionText")).Text;
-                //Get size varations
+                //Get size variations
                 //string sizes = Program.driver.FindElement(By.Id("ctl00_MainContent_lblSizeText")).Text;
                 //if (sizes != "")
                 //{
@@ -368,13 +385,15 @@ namespace ENGT_Scrape
                 //part.Value.imgUrl = Program.driver.FindElement(By.Id("ctl00_MainContent_imgBtnDimensions")).GetAttribute("src");
                 if(bSaveImage)
                 {
+                    WebClient client = new WebClient();
                     foreach(string src in part.Value.imgUrl)
                     {
-                        SaveImage(src, part.Key);
+                        SaveImage(client, src, part.Key);
                     }
+                    client.Dispose();
                 }
                 
-                //Get intechange list
+                //Get interchange list
                 //IWebElement table;
                 //try
                 //{
@@ -401,29 +420,61 @@ namespace ENGT_Scrape
             }
         }
 
-        private static void SaveImage(string src, string part)
+        private static void SaveImage(WebClient client, string src, string part)
         {
-            WebClient client = new WebClient();
             //Files must be less than 2 MB.
             //Allowed file types: png gif jpg jpeg.
             //Images must be between 400x550 and 1200x1200 pixels.
             //string ext = Path.GetExtension(src).ToLower();
             string name = Path.GetFileNameWithoutExtension(src);
             string fileName = String.Format("Images{0}{1}_{2}.png", Path.DirectorySeparatorChar.ToString(), part.Replace('*', '@'), name);
+            if (!Program.bOverrideImages)
+            {
+                if (File.Exists(fileName))
+                {
+                    Program.logger.Write(String.Format("File already exists. Leaving the old one."), Logger.LogType.INFO);
+                    return;
+                }
+            }
+            Program.logger.Write(String.Format("Downloading image: {0}.", src), Logger.LogType.INFO);
             //string[] validExts = new string[] { ".png", ".gif", ".jpg", ".jpeg" };
+            Bitmap image = null;
+            MemoryStream stream = null;
+            Bitmap cropImage = null;
+            Image newImage = null;
+            Graphics g = null;
+            FileStream fs = null;
             try
             {
-                Bitmap image;
-                using(Image origImage = Image.FromStream(new MemoryStream(client.DownloadData(src))))                            
+                bool bDownload = false;
+                ushort count = 0;
+                while (!bDownload || count < 10)
                 {
-                    image = new Bitmap(origImage);
+                    try
+                    {
+                        stream = new MemoryStream(client.DownloadData(src));
+                        bDownload = true;
+                    }
+                    catch(WebException e)
+                    {
+                        Program.logger.Write(String.Format("Failed to download image. Retrying in {0} seconds.", Program.waitTime), Logger.LogType.ERROR);
+                        count++;
+                        System.Threading.Thread.Sleep(TimeSpan.FromSeconds(Program.waitTime));
+                    }
                 }
+                if (!bDownload)
+                {
+                    Program.logger.Write("Skipping this image.", Logger.LogType.ERROR);
+                    return;
+                }
+                image = new Bitmap(stream);
                 //Rid of ugly borders
-                Color col = image.GetPixel(0, 0);                                
-                if (col.R < 250 || col.G < 250 || col.B < 250)
-                {   
+                Color col = image.GetPixel(0, 0);
+                if (col.R < 210 || col.G < 210 || col.B < 210)
+                {
+                    Program.logger.Write("Borders detected. Trying to find border's width.", Logger.LogType.INFO);
                     Point point = new Point(0, 0);
-                    while ((point.X <= image.Width && point.Y <= image.Height) && (col.R < 230 || col.G < 230 || col.B < 230) )
+                    while ((point.X <= image.Width && point.Y <= image.Height) && (col.R < 210 || col.G < 210 || col.B < 210) )
                     {
                         point.X++;
                         point.Y++;
@@ -431,7 +482,7 @@ namespace ENGT_Scrape
                     }
                     if(point.X > image.Width || point.Y > image.Height)
                     {
-                        Console.WriteLine("Can't detect border in: {0}", part);
+                        Program.logger.Write("Failed to find width.", Logger.LogType.ERROR);
                         point = new Point(0, 0);
                     }
                     int newW, newH;
@@ -439,11 +490,9 @@ namespace ENGT_Scrape
                     newH = image.Height - point.Y * 2;
                     Rectangle destRect = new Rectangle(0, 0, newW, newH);
                     Rectangle srcRect = new Rectangle(point.X, point.Y, image.Width - point.X * 2, image.Height - point.Y * 2);
-                    using(Bitmap cropImage = new Bitmap(newW, newH))
-                    {
-                        Graphics.FromImage(cropImage).DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
-                        image = new Bitmap(cropImage);
-                    }
+                    cropImage = new Bitmap(newW, newH);
+                    Graphics.FromImage(cropImage).DrawImage(image, destRect, srcRect, GraphicsUnit.Pixel);
+                    image = new Bitmap(cropImage);
                 }
                 int w = image.Width;
                 int h = image.Height;
@@ -468,10 +517,9 @@ namespace ENGT_Scrape
                     bw = w;
                     bh = h;
                     max = Math.Max(w, h);
-                    //log
-                    Console.WriteLine("Image upscaled from: {0}x{1} to: {2}x{3}", image.Width, image.Height, bw, bh);
+                    Program.logger.Write(String.Format("Image upscaled from: {0}x{1} to: {2}x{3}", image.Width, image.Height, bw, bh), Logger.LogType.INFO);
                 }
-                // Downscale if needed uncluding prevously upscaled to handle bad aspect ratios
+                // Downscale if needed including previously upscaled to handle bad aspect ratios
                 if( max > 1200 )
                 {
                     ratio = 1200.0f / max;
@@ -480,52 +528,69 @@ namespace ENGT_Scrape
                     //this will add white borders if aspect ratio is bad
                     bw = ( w < 400 ) ? 400 : w;
                     bh = ( h < 550 ) ? 550 : h;
-                    //log
-                    Console.WriteLine("Image downscaled from: {0}x{1} to: {2}x{3}", image.Width, image.Height, bw, bh);
+                    Program.logger.Write(String.Format("Image downscaled from: {0}x{1} to: {2}x{3}", image.Width, image.Height, bw, bh), Logger.LogType.INFO);
                 }
                 bool bResize = true;
+                double maxSize = 2097152.0f;
                 while (bResize)
                 {
                     r = new Rectangle((bw - w)/2, (bh - h)/2, w, h);
-                    using (Image newImage = new Bitmap(bw, bh))
+                    newImage = new Bitmap(bw, bh);
+                    g = Graphics.FromImage(newImage);
+                    g.FillRectangle(Brushes.White, 0, 0, bw, bh);
+                    g.DrawImage(image, r);
+                    stream = new MemoryStream();
+                    newImage.Save(stream, ImageFormat.Png);
+                    //Check file size after compressing with png                    
+                    if (stream.Length >= maxSize)
                     {
-                        using (Graphics g = Graphics.FromImage(newImage))
-                        {
-                            g.FillRectangle(Brushes.White, 0, 0, bw, bh);
-                            g.DrawImage(image, r);                                        
-                        }
-                        using (MemoryStream ms = new MemoryStream())
-                        {
-                            newImage.Save(ms, ImageFormat.Png);
-                            //Check file size after compressing with png
-                            double maxSize = 2097152.0f;
-                            if (ms.Length >= maxSize)
-                            {
-                                //Try reduce image dimensions
-                                ratio = (maxSize - 1) / ms.Length;
-                                w = (int)Math.Truncate(w * ratio);
-                                h = (int)Math.Truncate(h * ratio);
-                                bw = (w < 400) ? 400 : w;
-                                bh = (h < 550) ? 550 : h;
-                                Console.WriteLine("Reached file size limit. Image downscaled to: {0}x{1}", bw, bh);
-                            }
-                            else
-                            {
-                                //File size is ok: write stream to file
-                                bResize = false;
-                                using(FileStream fs = new FileStream(fileName, FileMode.Create, FileAccess.Write))
-                                {
-                                    ms.WriteTo(fs);
-                                }
-                            }
-                        }
-                    }                                                                        
+                        //Try reduce image dimensions
+                        ratio = (maxSize - 1) / stream.Length;
+                        w = (int)Math.Truncate(w * ratio);
+                        h = (int)Math.Truncate(h * ratio);
+                        bw = (w < 400) ? 400 : w;
+                        bh = (h < 550) ? 550 : h;
+                        Program.logger.Write(String.Format("Reached file size limit. Image downscaled to: {0}x{1}", bw, bh), Logger.LogType.INFO);
+                    }
+                    else
+                    {
+                        //File size is ok: write stream to file
+                        bResize = false;
+                        fs = new FileStream(fileName, FileMode.Create, FileAccess.Write);
+                        stream.WriteTo(fs);
+                    }                                                                     
                 }
-                image.Dispose();
             }
-            catch (ArgumentException ex)
+            catch (Exception ex)
             {
-                Console.WriteLine(ex.Message);
+                Program.logger.Write(String.Format("Error while saving image: {0}", ex.Message), Logger.LogType.ERROR);
+            }
+            finally
+            {
+                if(image != null)
+                {
+                    image.Dispose();
+                }
+                if(stream != null)
+                {
+                    stream.Dispose();
+                }
+                if(cropImage != null)
+                {
+                    cropImage.Dispose();
+                }
+                if(newImage != null)
+                {
+                    newImage.Dispose();
+                }
+                if(g != null)
+                {
+                    g.Dispose();
+                }
+                if(fs != null)
+                {
+                    fs.Dispose();
+                }
             }
         }
 

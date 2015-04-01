@@ -27,7 +27,8 @@ namespace ENGT_Scrape
         }
     }
 
-    //Main programm
+    /// <summary>
+    /// Main program class</summary>
     class Program
     {
         public static IWebDriver driver;
@@ -35,7 +36,7 @@ namespace ENGT_Scrape
         public static string url = "http://enginetechcatalog.com/";
         static string output = "output.xml";
         static string phantomPath = "";
-        static int waitTime = 10;
+        public static int waitTime = 60;
         public static ScrapeData scrapeData;
         public static Logger logger;
         static bool bDone;
@@ -44,6 +45,7 @@ namespace ENGT_Scrape
         public static bool bResetCache = false;
         public static bool bRecover;
         public static Dictionary<string, string> locDescDict = new Dictionary<string, string>();
+        public static bool bOverrideImages = false;
         static void Main(string[] args)
         {
             //initialize objects;
@@ -115,6 +117,8 @@ namespace ENGT_Scrape
                         break;
                     case "resetcache": Boolean.TryParse(option.Value, out bResetCache);
                         break;
+                    case "override_images": Boolean.TryParse(option.Value, out bOverrideImages);
+                        break;
                     //case "search":
                     //    bSearch = true;
                     //    search = option.Value.Split(new char[] { '.' });
@@ -169,11 +173,8 @@ namespace ENGT_Scrape
                     {
                         if (ex is WebDriverException || ex is WebDriverTimeoutException || ex is StaleElementReferenceException)
                         {
-                            if (!bRecover)
-                            {
-                                bRecover = true;
-                                logger.Write(String.Format("Encountered internet connection problem on: {2}. Reloading parcer.", driver.Url), Logger.LogType.ERROR);
-                            }
+                            bRecover = true;
+                            logger.Write(String.Format("Encountered Internet connection problem on: {0}. Reloading parser.", driver.Url), Logger.LogType.ERROR);
                         }
                         else throw;
                     }
@@ -232,11 +233,8 @@ namespace ENGT_Scrape
                 {
                     if (ex is WebDriverException || ex is WebDriverTimeoutException || ex is StaleElementReferenceException)
                     {
-                        if (!bRecover)
-                        {
-                            bRecover = true;
-                            logger.Write(String.Format("Encountered internet connection problem on: {2}. Reloading parcer.", driver.Url), Logger.LogType.ERROR);
-                        }
+                        bRecover = true;
+                        logger.Write(String.Format("Encountered Internet connection problem on: {0}. Reloading parser.", driver.Url), Logger.LogType.ERROR);
                     }
                     else throw;
                 }
@@ -261,7 +259,8 @@ namespace ENGT_Scrape
             //    scrapeData.WritePartNames(writer);
             //}
 
-            //Shuting down driver
+            logger.Write("End of log.", Logger.LogType.INFO);
+            //Shutting down driver
             driver.Quit();
             //System.Console.ReadKey();
         } //end of method Main()
