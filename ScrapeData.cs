@@ -171,7 +171,7 @@ namespace ENGT_Scrape
         public class EnginePart
         {
             /// <summary>
-            /// Refers to storage wich this engine part belongs.</summary>
+            /// Refers to storage.</summary>
             public ScrapeData parent;
             public string partNumber;
             public string description;
@@ -180,7 +180,7 @@ namespace ENGT_Scrape
             public HashSet<string> imgUrl;
             public string href;
             public HashSet<string> setContents;
-            public HashSet<KeyValuePair<string, string>> compInter;
+            public Dictionary<string, string> compInter;
             public Dictionary<ScrapeData.Engine, string> engines;
             public SortedSet<string> carMakes;
             public SortedSet<string> carTypes;
@@ -192,10 +192,10 @@ namespace ENGT_Scrape
             }
 
             /// <summary>
-            /// Constructor with minimal set of requared parametres.</summary>
+            /// Constructor with minimal set of required parameters.</summary>
             /// <param name="parent">Storage object.</param>
             /// <param name="partN">Part number.</param>
-            /// <param name="href">URL of this part on the ET cataloge site.</param>
+            /// <param name="href">URL of this part on the ET catalog site.</param>
             public EnginePart(ScrapeData parent, string partN, string href)
             {
                 this.partNumber = partN;
@@ -204,7 +204,7 @@ namespace ENGT_Scrape
                 this.sizes = new HashSet<string>();
                 this.imgUrl = new HashSet<string>();
                 this.setContents = new HashSet<string>();
-                this.compInter = new HashSet<KeyValuePair<string, string>>();
+                this.compInter = new Dictionary<string, string>();
                 this.engines = new Dictionary<ScrapeData.Engine, string>();
                 this.carMakes = new SortedSet<string>();
                 this.carTypes = new SortedSet<string>();
@@ -249,12 +249,12 @@ namespace ENGT_Scrape
         public class Engine
         {
             /// <summary>
-            /// Refers to storage wich this engine belongs.</summary>
+            /// Refers to storage.</summary>
             public ScrapeData parent;
             public string fullDesc;
 
             /// <summary>
-            /// Constructor with minimal set of parametres.</summary>
+            /// Constructor with minimal set of parameters.</summary>
             /// <param name="parent">Storage object.</param>
             /// <param name="fullDesc">String representing name of an engine.</param>
             public Engine(ScrapeData parent, string fullDesc)

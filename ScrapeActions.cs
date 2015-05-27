@@ -128,7 +128,7 @@ namespace ENGT_Scrape
                 }
 
                 //Clicking through entire list of engines of current car to get additional info
-                string eng_title = null;
+                //string eng_title = null;
                 string[] c = car.Value.Split(new string[] { " - ", "- " }, StringSplitOptions.None);
                 List<string> output = new List<string>();
                 foreach (KeyValuePair<string, string> engine in engines)
@@ -317,6 +317,7 @@ namespace ENGT_Scrape
         {
             //TODO: get from argument
             bool bSaveImage = Program.bImages;
+            int count = 0;// Program.scrapeData.parts.Count;
             foreach (KeyValuePair<string, ScrapeData.EnginePart> part in Program.scrapeData.parts)
             {
                 //Recover after connection problems
@@ -335,7 +336,7 @@ namespace ENGT_Scrape
                 {
                     recData.href = part.Value.href;
                 }
-                //fix url with '+' in Part Number
+                //fix URL with '+' in Part Number
                 if (part.Key.Contains('+'))
                 {
                     string newPartNumber = part.Key.Replace("+", "%2B");
@@ -364,6 +365,10 @@ namespace ENGT_Scrape
                 if (bError) continue; //Server error - skip this engine part
                 //log
                 Program.logger.Write(String.Format("Scraping engine part: {0}", part.Key), Logger.LogType.INFO);
+                //write progress bar
+                count++;
+                Console.WriteLine("Progress: {0}/{1} ({2:P2})", count, Program.scrapeData.parts.Count, (float)count / (float)Program.scrapeData.parts.Count);
+
                 //Get part description
                 //part.Value.description = Program.driver.FindElement(By.Id("ctl00_MainContent_lblDescriptionText")).Text;
                 //Get size variations
@@ -394,19 +399,30 @@ namespace ENGT_Scrape
                 }
                 
                 //Get interchange list
-                //IWebElement table;
-                //try
-                //{
-                //    table = Program.driver.FindElement(By.Id("ctl00_MainContent_trInterchangeRepeater"));
-                //    foreach (IWebElement wel in table.FindElements(By.CssSelector(
-                //        "table[class='dimensionRepeaterData'] tbody tr")))
-                //    {
-                //        part.Value.compInter.Add(new KeyValuePair<string, string>(
-                //            wel.FindElement(By.CssSelector("span[id$='_lblName']")).Text,
-                //            wel.FindElement(By.CssSelector("span[id$='_lblPartno']")).Text));
-                //    }
-                //}
-                //catch (NoSuchElementException) { }
+                IWebElement table;
+                try
+                {
+                    table = Program.driver.FindElement(By.Id("ctl00_MainContent_trInterchangeRepeater"));
+                    foreach (IWebElement wel in table.FindElements(By.CssSelector(
+                        "table[class='dimensionRepeaterData'] tbody tr")))
+                    {
+                        string name, number;
+                        name = wel.FindElement(By.CssSelector("span[id$='_lblName']")).Text;
+                        number = wel.FindElement(By.CssSelector("span[id$='_lblPartno']")).Text;
+                        if (part.Value.compInter.ContainsKey(name))
+                        {
+                            part.Value.compInter[name] += ", " + number;
+                        }
+                        else
+                        {
+                            part.Value.compInter[name] = number;
+                        }
+                        //part.Value.compInter.Add(new KeyValuePair<string, string>(
+                        //    wel.FindElement(By.CssSelector("span[id$='_lblName']")).Text,
+                        //    wel.FindElement(By.CssSelector("span[id$='_lblPartno']")).Text));
+                    }
+                }
+                catch (NoSuchElementException) { }
                 ////Get set contents
                 //try
                 //{
@@ -455,7 +471,7 @@ namespace ENGT_Scrape
                         stream = new MemoryStream(client.DownloadData(src));
                         bDownload = true;
                     }
-                    catch(WebException e)
+                    catch(WebException)
                     {
                         Program.logger.Write(String.Format("Failed to download image. Retrying in {0} seconds.", Program.waitTime), Logger.LogType.ERROR);
                         count++;

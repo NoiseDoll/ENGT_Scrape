@@ -35,6 +35,7 @@ namespace ENGT_Scrape
         public static WebDriverWait wait;
         public static string url = "http://enginetechcatalog.com/";
         static string output = "output.xml";
+        static string price = "price.tsv";
         static string phantomPath = "";
         public static int waitTime = 60;
         public static ScrapeData scrapeData;
@@ -46,6 +47,7 @@ namespace ENGT_Scrape
         public static bool bRecover;
         public static Dictionary<string, string> locDescDict = new Dictionary<string, string>();
         public static bool bOverrideImages = false;
+        private static bool bCompetitor = false;
         static void Main(string[] args)
         {
             //initialize objects;
@@ -119,6 +121,8 @@ namespace ENGT_Scrape
                         break;
                     case "override_images": Boolean.TryParse(option.Value, out bOverrideImages);
                         break;
+                    case "competitors": Boolean.TryParse(option.Value, out bCompetitor);
+                        break;
                     //case "search":
                     //    bSearch = true;
                     //    search = option.Value.Split(new char[] { '.' });
@@ -139,15 +143,17 @@ namespace ENGT_Scrape
             }
             catch (DriverServiceNotFoundException)
             {
-                Console.WriteLine("Can't find phantomjs.exe. Try specify the path. Commandline arg is: -phantompath:<path>");
+                Console.WriteLine("Can't find phantomjs.exe. Try specify the path. Command-line arg is: -phantompath:<path>");
                 return;
             }
             wait = new WebDriverWait(driver, TimeSpan.FromSeconds(waitTime));
 
-            if (File.Exists("price.tsv"))
+            if (bPrice && File.Exists(price))
             {
-                File.Delete("price.tsv");
+                File.Delete(price);
             }
+
+            //goto m;
 
             //Start tasks in recovery loops
             RecoveryData rd = new RecoveryData(0, new string[4], String.Empty);
@@ -214,7 +220,7 @@ namespace ENGT_Scrape
             }
             //Start tasks in recovery loops
             rd = new RecoveryData(0, new string[4], String.Empty);
-            bDone = !bImages;
+            //bDone = !bImages && !bCompetitor;
             while (!bDone)
             {
                 try
@@ -237,6 +243,76 @@ namespace ENGT_Scrape
                         logger.Write(String.Format("Encountered Internet connection problem on: {0}. Reloading parser.", driver.Url), Logger.LogType.ERROR);
                     }
                     else throw;
+                }
+            }
+
+            //m:
+            //ScrapeData.EnginePart p = new ScrapeData.EnginePart(Program.scrapeData, "BB2208", "href");
+            //p.compInter.Add(new KeyValuePair<string, string>("ITM", "4B"));
+            //HashSet<string> competitors = new HashSet<string>();
+            //foreach(KeyValuePair<string, ScrapeData.EnginePart> p in scrapeData.parts)
+            //{
+            //    foreach(KeyValuePair<string, string> c in p.Value.compInter)
+            //    {
+            //        competitors.Add(c.Key);
+            //    }
+            //}
+            //
+            //string[] sortedCompetitors = competitors.OrderBy(i => i).ToArray();
+
+            //Get competitors list from file
+            List<List<string>> competitors = new List<List<string>>(36);
+            using (StreamReader reader = File.OpenText("competitors"))
+            {
+                string[] temp;
+                while (reader.Peek() >= 0)
+                {
+                    temp = reader.ReadLine().Split(new char[] { '\t' });
+                    competitors.Add(new List<string>(temp));
+                }
+            }
+            //Append competitor table to price-list
+            if(bCompetitor && File.Exists(price))
+            {
+                using (StreamWriter writer = File.CreateText(Path.GetFileNameWithoutExtension(price) + "_comp" + Path.GetExtension(price)))
+                using (StreamReader reader = File.OpenText(price))
+                {
+                    //string[] competitors = { "ACL", "Avon", "Beck Arnley", "Clemex", "Clevite", "Cloyes", "DNJ Rock", "Detroit", "Dura-Bond", "Dynagear", "Elgin", "FM", "Fed. Mogul", "Fel-Pro", "Hastings", "ITM", "King", "Mahle", "Manley", "Melling", "Perfect Circle", "Pioneer", "QualCast", "ROL", "S.A. Gear", "SBI", "Safety", "Silvolite", "Tiger", "Topline", "Vandervell", "Victor Reinz" };
+                    //Write table header
+                    writer.Write("\t\t\t\t\t\t\t\t");
+                    writer.WriteLine(String.Join("\t", competitors.Select(
+                        list => list.FirstOrDefault()
+                        )));
+                    string temp;
+                    string partNumber;
+                    ScrapeData.EnginePart part = null;
+                    while (reader.Peek() >= 0)
+                    {
+                        temp = reader.ReadLine();
+                        writer.Flush();
+                        writer.Write(temp); //write initial line
+                        writer.Write("\t");
+                        partNumber = temp.Split(new char[] { '\t' })[5]; //get Part Number from line
+                        part = scrapeData.parts[partNumber];
+                        string[] compNumbers = new string[competitors.Count];
+                        foreach(KeyValuePair<string, string> comp in part.compInter)
+                        {
+                            //Place competitors part number into right column in array
+                            int index = competitors.FindIndex(list => list.Contains(comp.Key));
+                            if (index != -1)
+                            {
+                                compNumbers[index] = comp.Value;
+                            }
+                            else
+                            {
+                                logger.Write(String.Format(
+                                    "Found unrecognized or missing competitor! Competitor name: {0}, Enginetech part number: {1}", comp.Key, part.partNumber
+                                    ), Logger.LogType.WARNING);
+                            }
+                        }
+                        writer.WriteLine(String.Join("\t", compNumbers));
+                    }
+
                 }
             }
 
