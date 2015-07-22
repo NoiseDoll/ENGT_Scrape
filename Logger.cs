@@ -1,9 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace ENGT_Scrape
 {
@@ -24,15 +20,8 @@ namespace ENGT_Scrape
             get { return logOutput; }
             set { logOutput = value; }
         }
-        public Logger()
-        {
-            LoggerConstructor("engt.log");
-        }
+        public Logger() : this("engt.log") { }
         public Logger(string file)
-        {
-            LoggerConstructor(file);
-        }
-        private void LoggerConstructor(string file)
         {
             this.logOutput = file;
             StreamWriter writer = null;
@@ -42,13 +31,13 @@ namespace ENGT_Scrape
                 writer.WriteLine("");
                 writer.WriteLine("Start logging for ENGT at {0}", DateTime.Now.ToShortDateString());
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine("Failed to write log into file with error: {0}", ex.Message);
             }
             finally
             {
-                if( writer != null )
+                if (writer != null)
                 {
                     writer.Dispose();
                 }
@@ -58,18 +47,18 @@ namespace ENGT_Scrape
         public void Write(string message, LogType type)
         {
             StreamWriter writer = null;
-            try 
+            try
             {
                 writer = File.AppendText(this.logOutput);
                 writer.WriteLine("[{0}] {1}: {2}", type.ToString(), DateTime.Now.ToShortTimeString(), message);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 Console.WriteLine("Failed to write log into file with error: {0}", ex.Message);
             }
             finally
             {
-                if( writer != null )
+                if (writer != null)
                 {
                     writer.Dispose();
                 }

@@ -3,7 +3,6 @@ using OpenQA.Selenium.PhantomJS;
 using OpenQA.Selenium.Support.UI;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -47,7 +46,7 @@ namespace ENGT_Scrape
         public static bool bRecover;
         public static Dictionary<string, string> locDescDict = new Dictionary<string, string>();
         public static bool bOverrideImages = false;
-        private static bool bCompetitor = false;
+        public static bool bCompetitor = false;
         static void Main(string[] args)
         {
             //initialize objects;
@@ -56,14 +55,14 @@ namespace ENGT_Scrape
             bRecover = false;
             //string recHref = "";
             Dictionary<string, string> options = new Dictionary<string, string>();
-            
+
             //Checking args
             if (args.Length != 0)
             {
                 foreach (string arg in args)
                 {
                     Match match = Regex.Match(arg, @"\-(?<argname>\w+):(?<argvalue>.+)");
-                    if(match.Success) 
+                    if (match.Success)
                     {
                         options.Add(match.Groups["argname"].Value, match.Groups["argvalue"].Value);
                     }
@@ -72,7 +71,7 @@ namespace ENGT_Scrape
 
             //Collect localization dictionary
             string locFile = "parts.loc";
-            if(File.Exists(locFile))
+            if (File.Exists(locFile))
             {
                 using (StreamReader sr = File.OpenText(locFile))
                 {
@@ -86,7 +85,7 @@ namespace ENGT_Scrape
             }
             //Read config
             string confFile = "engt.cfg";
-            if(File.Exists(confFile))
+            if (File.Exists(confFile))
             {
                 using (StreamReader sr = File.OpenText(confFile))
                 {
@@ -94,7 +93,7 @@ namespace ENGT_Scrape
                     while (sr.Peek() >= 0)
                     {
                         pair = sr.ReadLine().Split(new string[] { ": " }, StringSplitOptions.RemoveEmptyEntries);
-                        options.Add(pair[0], pair[1]);
+                        options[pair[0]] = pair[1];
                     }
                 }
             }
@@ -220,7 +219,14 @@ namespace ENGT_Scrape
             }
             //Start tasks in recovery loops
             rd = new RecoveryData(0, new string[4], String.Empty);
-            //bDone = !bImages && !bCompetitor;
+            if (bImages == true || bCompetitor == true)
+            {
+                bDone = false;
+            }
+            else
+            {
+                bDone = true;
+            }
             while (!bDone)
             {
                 try
@@ -272,7 +278,7 @@ namespace ENGT_Scrape
                 }
             }
             //Append competitor table to price-list
-            if(bCompetitor && File.Exists(price))
+            if (bCompetitor && File.Exists(price))
             {
                 using (StreamWriter writer = File.CreateText(Path.GetFileNameWithoutExtension(price) + "_comp" + Path.GetExtension(price)))
                 using (StreamReader reader = File.OpenText(price))
@@ -295,7 +301,7 @@ namespace ENGT_Scrape
                         partNumber = temp.Split(new char[] { '\t' })[5]; //get Part Number from line
                         part = scrapeData.parts[partNumber];
                         string[] compNumbers = new string[competitors.Count];
-                        foreach(KeyValuePair<string, string> comp in part.compInter)
+                        foreach (KeyValuePair<string, string> comp in part.compInter)
                         {
                             //Place competitors part number into right column in array
                             int index = competitors.FindIndex(list => list.Contains(comp.Key));
