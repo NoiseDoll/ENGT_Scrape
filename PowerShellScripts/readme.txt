@@ -1,0 +1,1 @@
+Copy run_script.bat into bin folder and drag and drop PowerShell script in this .bat
