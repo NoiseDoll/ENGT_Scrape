@@ -313,7 +313,6 @@ namespace ENGT_Scrape
             //TODO: get from argument
             bool bSaveImage = Program.bImages;
             bool bSaveInterchage = Program.bCompetitor;
-            int count = 0;// Program.scrapeData.parts.Count;
             foreach (KeyValuePair<string, ScrapeData.EnginePart> part in Program.scrapeData.parts)
             {
                 //Recover after connection problems
@@ -357,12 +356,33 @@ namespace ENGT_Scrape
                     }
                 }
                 catch (NoSuchElementException) { } //there is no server error
-
-                if (bError) continue; //Server error - skip this engine part
+                if (bError)
+                {
+                    Program.logger.Write(String.Format("Skipping engine part {0} by server error", part.Key), Logger.LogType.WARNING);
+                    continue; //Server error - skip this engine part
+                }
+                //Try take part number to ensure page has been reloaded
+                Program.wait.Until((d) =>
+                {
+                    try
+                    {
+                        string partNumber = d.FindElement(By.Id("ctl00_MainContent_lblPartDetailsText")).Text;
+                        return part.Key == partNumber;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (ex is NoSuchElementException || ex is StaleElementReferenceException)
+                        {
+                            return false;
+                        }
+                        else throw;
+                    }
+                });
                 //log
                 Program.logger.Write(String.Format("Scraping engine part: {0}", part.Key), Logger.LogType.INFO);
                 //write progress bar
-                count++;
+                Program.progressCount++;
+                int count = Program.progressCount;
                 Console.WriteLine("Progress: {0}/{1} ({2:P2})", count, Program.scrapeData.parts.Count, (float)count / (float)Program.scrapeData.parts.Count);
 
                 //Get part description
@@ -385,12 +405,15 @@ namespace ENGT_Scrape
                         }
                     }
                     catch (NoSuchElementException) { }
-                    WebClient client = new WebClient();
-                    foreach (string src in part.Value.imgUrl)
+                    if (part.Value.imgUrl.Count > 0)
                     {
-                        SaveImage(client, src, part.Key);
+                        WebClient client = new WebClient();
+                        foreach (string src in part.Value.imgUrl)
+                        {
+                            SaveImage(client, src, part.Key);
+                        }
+                        client.Dispose();
                     }
-                    client.Dispose();
                 }
 
                 //Get interchange list
@@ -459,12 +482,13 @@ namespace ENGT_Scrape
             {
                 bool bDownload = false;
                 ushort count = 0;
-                while (!bDownload || count < 10)
+                while (count < 10)
                 {
                     try
                     {
                         stream = new MemoryStream(client.DownloadData(src));
                         bDownload = true;
+                        break;
                     }
                     catch (WebException)
                     {

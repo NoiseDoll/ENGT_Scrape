@@ -47,6 +47,7 @@ namespace ENGT_Scrape
         public static Dictionary<string, string> locDescDict = new Dictionary<string, string>();
         public static bool bOverrideImages = false;
         public static bool bCompetitor = false;
+        public static int progressCount = 0;
         static void Main(string[] args)
         {
             //initialize objects;
@@ -246,7 +247,7 @@ namespace ENGT_Scrape
                     if (ex is WebDriverException || ex is WebDriverTimeoutException || ex is StaleElementReferenceException)
                     {
                         bRecover = true;
-                        logger.Write(String.Format("Encountered Internet connection problem on: {0}. Reloading parser.", driver.Url), Logger.LogType.ERROR);
+                        logger.Write("Encountered Internet connection problem. Reloading parser.", Logger.LogType.ERROR);
                     }
                     else throw;
                 }
